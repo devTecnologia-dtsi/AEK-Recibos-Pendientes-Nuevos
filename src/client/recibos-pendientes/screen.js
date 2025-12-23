@@ -2,8 +2,10 @@ import React, { useState } from "react";
 import { useAxiosReciboPendientes } from "../../hooks/useAxiosReciboPendientes";
 import { useAxiosDatosPersonales } from "../../hooks/useAxiosDatosPersonales";
 import { urlPagoPSE } from "../../helpers/serviciosUrl";
-import { mostrarAlertaError, mostrarAlertaConfirmacionSinCancelar } from "../../helpers/alertasHelper";
+import { mostrarAlertaError, mostrarAlertaConfirmacionSinCancelar, mostrarAlertaExito } from "../../helpers/alertasHelper";
 import { useAxiosEstudiantesNuevos } from "../../hooks/useAxiosEstudiantesNuevos";
+import { useAxiosSendEmails } from "../../hooks/useAxiosSendEmails";
+import { encrypt, keyEncryptDecrypt } from "../../helpers/EncryptDecryptHelper";
 
 //DEFINO LOS ESTILOS
 const estiloFuentes = {
@@ -43,7 +45,7 @@ export default Screen = () => {
   const { consultarDatos } = useAxiosDatosPersonales(); // objeto que almacena la informacion del usuario
   const { recibos, consultarRecibosPendientes } = useAxiosReciboPendientes();
   const [ejecutoConsultaRecibos, setEjecutoConsultaRecibos] = useState(false);
-
+  const { enviarCorreoElectronico } = useAxiosSendEmails();
 
   //consulta si el estudiante es nuevo o antiguo o si no existe ese estudiante
   const handleConsultarInformacionEstudiantesNuevos = async (e) => {
@@ -51,7 +53,7 @@ export default Screen = () => {
 
     try {
       setMostrarDivCargando(true);
-      const { id, msg, mail, status } = await consultarDatosEstudiantesNuevos(nDocEstudianteNuevo, fNacimientoEstudianteNuevo);
+      const { id, msg, mail, mail2 = "", status } = await consultarDatosEstudiantesNuevos(nDocEstudianteNuevo, fNacimientoEstudianteNuevo);
       if (status == 2) {
 
         // consulto los datos personales del estudiante
@@ -63,10 +65,26 @@ export default Screen = () => {
 
       } else if (status == 1) {
 
-        const res = await mostrarAlertaConfirmacionSinCancelar("Estimado usuario, por favor ingrese con el perfil Estudiante Antiguo, mediante correo institucional",
-          "Dar clic Aquí");
-        if (res.isConfirmed === true) {
-          window.open('https://uniminuto-sandbox.campusm.exlibrisgroup.com/campusm/home#select-profile')
+        // const res = await mostrarAlertaConfirmacionSinCancelar("Estimado usuario, por favor ingrese con el perfil Estudiante Antiguo, mediante correo institucional",
+        //   "Dar clic Aquí");
+        // if (res.isConfirmed === true) {
+        //   window.open('https://uniminuto-sandbox.campusm.exlibrisgroup.com/campusm/home#select-profile')
+        // }
+
+        // si existe un correo personal realizo un envio a ese correo con la informacion
+        if (mail2 != "") {
+          const mensaje = `Estimado usuario el sistema ha identificado que es necesario ingresar utilizando el perfil de Estudiante Antiguo.
+        para continuar el proceso, enviaremos una notificacion al correo personal ${mail} notificando su correo institucional. Si requiere realizar
+        cambio de contraseña puedes hacerlo a través del siguiente enlace: <a href="https://tuclave.uniminuto.edu/">https://tuclave.uniminuto.edu/</a>`
+
+          //encripto el correo alternativo
+          const correoEnc = encrypt(keyEncryptDecrypt, mail2);
+          //Realizo el envio  del correo
+          await enviarCorreoElectronico(correoEnc, mail)
+          await mostrarAlertaConfirmacionSinCancelar(mensaje)
+
+        } else {
+          mostrarAlertaError("No tienes un correo alterno asignado")
         }
 
       } else if (status == 0) {
@@ -219,7 +237,7 @@ export default Screen = () => {
                                 onMouseLeave={() => setIsHoveredPse(false)} style={isHoveredPse ? estiloHover : estiloBase}
                               >
                                 {/*<img style={{ maxWidth: "10%", cursor: "pointer" }} src="https://storage-masivdrive.masivapp.com/1703/98f65ca6-11a6-4aee-9260-9ade652ca57f/4794c789-5271-4343-89bd-01db134eed4b/eb9bcb10-b9d3-4c27-897c-05113a4a35b0/f5ae2a2c-4241-4220-a112-3e348bccc988.png" />*/}
-                                 <img style={{ width: "40px", cursor: "pointer" }} src="https://storage-masivdrive.masivapp.com/1703/98f65ca6-11a6-4aee-9260-9ade652ca57f/4794c789-5271-4343-89bd-01db134eed4b/eb9bcb10-b9d3-4c27-897c-05113a4a35b0/f5ae2a2c-4241-4220-a112-3e348bccc988.png" />
+                                <img style={{ width: "40px", cursor: "pointer" }} src="https://storage-masivdrive.masivapp.com/1703/98f65ca6-11a6-4aee-9260-9ade652ca57f/4794c789-5271-4343-89bd-01db134eed4b/eb9bcb10-b9d3-4c27-897c-05113a4a35b0/f5ae2a2c-4241-4220-a112-3e348bccc988.png" />
                               </a>
                             ) :
                             (
